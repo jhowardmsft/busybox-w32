@@ -16,8 +16,7 @@ int64_t FAST_FUNC read_key(int fd, char *buf UNUSED_PARAM, int timeout)
 	INPUT_RECORD record;
 	DWORD nevent_out, mode;
 	int ret = -1;
-	char *s;
-
+	char s;
 	if (fd != 0)
 		bb_error_msg_and_die("read_key only works on stdin");
 	if (cin == INVALID_HANDLE_VALUE)
@@ -30,11 +29,11 @@ int64_t FAST_FUNC read_key(int fd, char *buf UNUSED_PARAM, int timeout)
 			goto done;
 	}
 	while (1) {
-		if (!ReadConsoleInput(cin, &record, 1, &nevent_out))
+		if (!ReadConsoleInputW(cin, &record, 1, &nevent_out))
 			goto done;
 		if (record.EventType != KEY_EVENT || !record.Event.KeyEvent.bKeyDown)
 			continue;
-		if (!record.Event.KeyEvent.uChar.AsciiChar) {
+		if (!record.Event.KeyEvent.uChar.UnicodeChar) {
 			DWORD state = record.Event.KeyEvent.dwControlKeyState;
 
 			if (state & (RIGHT_CTRL_PRESSED|LEFT_CTRL_PRESSED) &&
@@ -69,12 +68,13 @@ int64_t FAST_FUNC read_key(int fd, char *buf UNUSED_PARAM, int timeout)
 			case VK_NEXT: ret = KEYCODE_PAGEDOWN; goto done;
 			}
 			continue;
+		
 		}
-		if ( (record.Event.KeyEvent.uChar.AsciiChar & 0x80) == 0x80 ) {
-			s = &record.Event.KeyEvent.uChar.AsciiChar;
-			OemToCharBuff(s, s, 1);
-		}
-		ret = record.Event.KeyEvent.uChar.AsciiChar;
+		ret = record.Event.KeyEvent.uChar.UnicodeChar;
+		if ( ret > 0x7f ) {
+			WideCharToMultiByte(CP_ACP,0,(LPCWCH)&ret,1,&s,1,NULL,(LPBOOL)NULL);
+			ret = s;
+ 		}
 		break;
 	}
  done:

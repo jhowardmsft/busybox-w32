@@ -13772,11 +13772,25 @@ int ash_main(int argc UNUSED_PARAM, char **argv)
 	procargs(argv);
 #if ENABLE_PLATFORM_MINGW32
 	if ( noconsole ) {
-		DWORD dummy;
-
-		if ( GetConsoleProcessList(&dummy, 1) == 1 ) {
-			ShowWindow(GetConsoleWindow(), SW_HIDE);
-		}
+		// No user32.dll or GetConsoleProcessList on nanoserver 
+		HINSTANCE hUser32 = LoadLibrary("user32");
+		HINSTANCE hKernel32 = LoadLibrary("kernel32");
+		if (hUser32 && hKernel32) {
+			typedef BOOL(WINAPI *pShowWindow)(HWND,int);
+			typedef DWORD(WINAPI *pGetConsoleProcessList)(LPDWORD,DWORD);
+			
+			pShowWindow fShowWindow=(pShowWindow)GetProcAddress(hUser32,"ShowWindow");
+			pGetConsoleProcessList fGetConsoleProcessList=(pGetConsoleProcessList)GetProcAddress(hKernel32,"GetConsoleProcessList");
+			
+			if (fShowWindow && fGetConsoleProcessList) {
+				DWORD dummy;
+				if ( fGetConsoleProcessList(&dummy, 1) == 1 ) {
+					fShowWindow(GetConsoleWindow(), SW_HIDE);
+				}
+			}
+		} 
+		if (hUser32) FreeLibrary(hUser32);
+		if (hKernel32) FreeLibrary(hKernel32);
 	}
 #endif
 

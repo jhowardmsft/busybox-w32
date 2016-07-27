@@ -666,7 +666,9 @@ int winansi_read(int fd, void *buf, size_t count)
 		return rv;
 
 	if ( rv > 0 ) {
-		OemToCharBuff(buf, buf, rv);
+		// Could change to readconsolew in the cases where !isatty and !console_in
+		// commented out for now
+		//OemToCharBuff(buf, buf, rv);
 	}
 
 	return rv;
@@ -676,21 +678,32 @@ int winansi_getc(FILE *stream)
 {
 	int rv;
 
-	rv = getc(stream);
-	if (!isatty(fileno(stream)))
+	if (!isatty(fileno(stream))) {
+		rv = getc(stream);
 		return rv;
+	}
 
 	init();
 
-	if (!console_in)
+	if (!console_in) {
+		rv = getc(stream);
 		return rv;
+	}
 
-	if ( rv != EOF ) {
+	rv = getwc(stream);
+	if ( rv != WEOF ) {
+		char s;
+		WideCharToMultiByte(CP_ACP,0,(LPCWCH)&rv,1,&s,1,NULL,(LPBOOL)NULL);
+		return((int)s);
+	}
+
+/*	if ( rv != EOF ) {
 		unsigned char c = (unsigned char)rv;
 		char *s = (char *)&c;
 		OemToCharBuff(s, s, 1);
 		rv = (int)c;
 	}
+*/
 
 	return rv;
 }
